@@ -9,6 +9,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
+    env:
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -24,6 +27,8 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run tests
+        env:
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run: pytest tests/
 
       - name: Create SSH key file
@@ -47,5 +52,7 @@ jobs:
             docker load < firma_app.tar
             docker stop firma_app || true
             docker rm firma_app || true
-            docker run -d --name firma_app -p 80:80 firma_app
+            docker run -d --name firma_app -p 80:80 \
+              -e SECRET_KEY="${SECRET_KEY}" \
+              firma_app
           EOF
