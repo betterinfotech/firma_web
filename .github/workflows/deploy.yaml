@@ -31,7 +31,7 @@ jobs:
             pip list
 
       - name: Run Pytest
-        run: pytest tests/
+        run: python -m pytest tests/
 
       - name: Deploy to EC2
         if: success()
