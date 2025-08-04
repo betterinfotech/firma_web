@@ -52,7 +52,7 @@ jobs:
             docker load < firma_app.tar
             docker stop firma_app || true
             docker rm firma_app || true
-            docker run -d --name firma_app -p 80:80 \
+            docker run -d --name firma_app -p 5000:5000 \
               -e SECRET_KEY="${SECRET_KEY}" \
               firma_app
           EOF
