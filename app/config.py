@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 load_dotenv()  # Automatically reads from .env file
 
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = os.getenv("SECRET_KEY", "fallback_dev_key")
 DB_CONFIG = {
     "dbname": os.getenv("DB_NAME"),
     "user": os.getenv("DB_USER"),
