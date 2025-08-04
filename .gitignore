@@ -1,0 +1,23 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+
+# Environment variables
+.env
+
+# Docker
+*.log
+*.pid
+*.sock
+.dockerignore
+
+# Tests
+tests/__pycache__/
+
+# IDE
+.idea/
