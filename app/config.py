@@ -1,4 +1,9 @@
 import os
+from typing import Dict
+
+"""
+This module handles configuration settings for the application and allows them to be easily imported.
+"""
 from dotenv import load_dotenv
 
 load_dotenv()  # Automatically reads from .env file
@@ -11,8 +16,8 @@ DB_CONFIG = {
     "host": os.getenv("DB_HOST"),
     "port": os.getenv("DB_PORT", "5432"),
 }
-DATADOG_OPTIONS = {
-    "statsd_host": os.getenv("STATSD_HOST", "127.0.0.1"),
-    "statsd_port": int(os.getenv("STATSD_PORT", "8125")),
-}
+
 VALID_DEVICES = {"LAPTOP-S2QSIFSL": "Lenovo", "SOME_LOR_PC": "SOME_LOR_USER"}
+
+AWS_REGION = os.getenv("AWS_REGION", "us-east-2")
+S3_BUCKET = os.getenv("S3_BUCKET", "firma-bim-prod")
