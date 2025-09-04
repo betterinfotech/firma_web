@@ -106,7 +106,7 @@ def upload_file():
     if file is None or file.filename == "":
         return jsonify(ok=False, error="No file provided (field 'file')"), 400
 
-    key = f"uploads/{uuid.uuid4()}__{file.filename}"
+    key = f"uploads/{file.filename}"
     s3 = boto3.client("s3", region_name=AWS_REGION)
 
     try:
@@ -127,3 +127,36 @@ def upload_file():
     )
 
     return jsonify(ok=True, bucket=S3_BUCKET, key=key, presigned_get=url), 201
+
+
+@auth_bp.route("/files/<path:filename>", methods=["GET"])
+def check_file_exists(filename: str):
+    """
+    RESTful endpoint to check if a file exists in S3.
+    Requires:
+      - Authorization: Bearer <token>
+      - Path parameter: /files/<filename>
+    Returns JSON: { exists: true/false }
+    """
+    # ---- Require JWT ----
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Missing or invalid token"}), 401
+
+    token = auth_header.split(" ")[1]
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
+    # ---- Check S3 ----
+    s3 = boto3.client("s3", region_name=AWS_REGION)
+    try:
+        s3.head_object(Bucket=S3_BUCKET, Key=f"uploads/{filename}")
+        return jsonify(exists=True)
+    except ClientError as e:
+        if e.response.get("Error", {}).get("Code") in ("404", "NotFound", "NoSuchKey"):
+            return jsonify(exists=False)
+        return jsonify(error=str(e)), 502
