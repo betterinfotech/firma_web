@@ -9,9 +9,6 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
-    env:
-      SECRET_KEY: ${{ secrets.SECRET_KEY }}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -27,8 +24,6 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run tests
-        env:
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run: pytest tests/
 
       - name: Create SSH key file
@@ -37,22 +32,48 @@ jobs:
           chmod 600 ec2_key.pem
 
       - name: Build Docker image
-        run: docker build -t firma_app .
+        run: docker build --pull --no-cache -t firma_app .
 
       - name: Save Docker image as tarball
         run: docker save firma_app > firma_app.tar
 
-      - name: Copy image tarball to EC2
+      - name: Build env file (on runner)
         run: |
-          scp -o StrictHostKeyChecking=no -i ec2_key.pem firma_app.tar ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/${{ secrets.EC2_USER }}/firma_app.tar
+          cat > app.env << 'EOF'
+          SECRET_KEY=${{ secrets.SECRET_KEY }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          S3_BUCKET=${{ secrets.S3_BUCKET }}
+          AWS_REGION=${{ secrets.AWS_REGION }}
+          EOF
 
       - name: Deploy on EC2 via SSH
+        env:
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
         run: |
-          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-            docker load < firma_app.tar
+          # copy env + image tar to EC2
+          scp -o StrictHostKeyChecking=no -i ec2_key.pem app.env $EC2_USER@$EC2_HOST:/home/$EC2_USER/app.env
+          scp -o StrictHostKeyChecking=no -i ec2_key.pem firma_app.tar $EC2_USER@$EC2_HOST:/home/$EC2_USER/firma_app.tar
+
+          # restart container with env-file
+          ssh -o StrictHostKeyChecking=no -i ec2_key.pem $EC2_USER@$EC2_HOST << 'EOF'
+            set -e
+            chmod 600 /home/$USER/app.env
+
             docker stop firma_app || true
             docker rm firma_app || true
-            docker run -d --name firma_app -p 5000:5000 \
-              -e SECRET_KEY="${SECRET_KEY}" \
+            docker rmi firma_app || true
+
+            docker load < /home/$USER/firma_app.tar
+
+            docker run -d --name firma_app -p 5000:5000 --restart unless-stopped \
+              --env-file /home/$USER/app.env \
               firma_app
+
+            # optional: clean up tarball to free space
+            rm -f /home/$USER/firma_app.tar
           EOF
