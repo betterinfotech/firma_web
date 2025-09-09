@@ -1,0 +1,37 @@
+name: DB migrations
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "infra/sql/**"   # only run when SQL files change
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install psql client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Apply SQL files in order
+        env:
+          PGHOST: ${{ secrets.PG_HOST }}
+          PGPORT: ${{ secrets.PG_PORT || '5432' }}
+          PGDATABASE: ${{ secrets.PG_DB }}
+          PGUSER: ${{ secrets.PG_USER }}
+          PGPASSWORD: ${{ secrets.PG_PASSWORD }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          SQL_DIR="infra/sql"
+          for f in $(ls -1 "$SQL_DIR"/*.sql | sort); do
+            echo "==> Applying $f"
+            psql "host=$PGHOST port=${PGPORT:-5432} dbname=$PGDATABASE user=$PGUSER sslmode=require" \
+              -v ON_ERROR_STOP=1 -f "$f"
+          done
+          echo "All migrations applied."
