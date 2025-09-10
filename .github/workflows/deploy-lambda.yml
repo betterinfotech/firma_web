@@ -1,0 +1,75 @@
+name: Deploy S3->Lambda logger
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "lambda_src/**"
+      - "infra/terraform/**"
+      - ".github/workflows/deploy-lambda.yml"
+
+jobs:
+  build-and-apply:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      AWS_REGION: us-east-2                 # <== set your region
+      NAME_PREFIX: firma                    # <== short prefix for resource names
+      S3_BUCKET_ID: firma-bim-prod        # <== the S3 bucket to watch
+      S3_BUCKET_ARN: arn:aws:s3:::firma-bim-prod
+
+      PG_HOST: ${{ secrets.PG_HOST }}
+      PG_PORT: ${{ secrets.PG_PORT }}
+      PG_DB:   ${{ secrets.PG_DB }}
+      PG_USER: ${{ secrets.PG_USER }}
+      PG_PASSWORD: ${{ secrets.PG_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Lambda package (amazonlinux)
+        run: |
+          mkdir -p dist build
+          docker run --rm -v "$PWD":/work -w /work amazonlinux:2023 bash -lc '
+            dnf -y install python3.12 python3.12-pip zip gcc postgresql-devel python3.12-devel
+            python3.12 -m pip install --upgrade pip
+            cp -r lambda_src/* build/
+            python3.12 -m pip install psycopg2-binary -t build/
+            cd build && zip -r ../dist/lambda_package.zip .
+          '
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}   # IAM role that trusts GitHub OIDC
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform init/plan/apply
+        working-directory: infra/terraform
+        run: |
+          terraform init
+          terraform plan \
+            -var="aws_region=${AWS_REGION}" \
+            -var="name_prefix=${NAME_PREFIX}" \
+            -var="lambda_zip_path=../../dist/lambda_package.zip" \
+            -var="s3_bucket_id=${S3_BUCKET_ID}" \
+            -var="s3_bucket_arn=${S3_BUCKET_ARN}" \
+            -var="pg_host=${PG_HOST}" \
+            -var="pg_port=${PG_PORT}" \
+            -var="pg_db=${PG_DB}" \
+            -var="pg_user=${PG_USER}" \
+            -var="pg_password=${PG_PASSWORD}"
+          terraform apply -auto-approve \
+            -var="aws_region=${AWS_REGION}" \
+            -var="name_prefix=${NAME_PREFIX}" \
+            -var="lambda_zip_path=../../dist/lambda_package.zip" \
+            -var="s3_bucket_id=${S3_BUCKET_ID}" \
+            -var="s3_bucket_arn=${S3_BUCKET_ARN}" \
+            -var="pg_host=${PG_HOST}" \
+            -var="pg_port=${PG_PORT}" \
+            -var="pg_db=${PG_DB}" \
+            -var="pg_user=${PG_USER}" \
+            -var="pg_password=${PG_PASSWORD}"
