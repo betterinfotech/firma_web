@@ -40,17 +40,19 @@ jobs:
       - name: Build env file (on runner)
         run: |
           cat > app.env << 'EOF'
-          # --- required by your app entrypoint ---
           DATABASE_URL=${{ secrets.DATABASE_URL }}
-          # --- keep existing vars (if your app still uses them elsewhere) ---
+          # S3 config (map common names in case your app uses a different one)
+          S3_BUCKET=${{ secrets.S3_BUCKET }}
+          AWS_S3_BUCKET=${{ secrets.S3_BUCKET }}
+          BUCKET_NAME=${{ secrets.S3_BUCKET }}
+          AWS_REGION=${{ secrets.AWS_REGION }}
+          # existing vars (if used elsewhere)
           SECRET_KEY=${{ secrets.SECRET_KEY }}
           DB_NAME=${{ secrets.DB_NAME }}
           DB_USER=${{ secrets.DB_USER }}
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
           DB_HOST=${{ secrets.DB_HOST }}
           DB_PORT=${{ secrets.DB_PORT }}
-          S3_BUCKET=${{ secrets.S3_BUCKET }}
-          AWS_REGION=${{ secrets.AWS_REGION }}
           EOF
 
       - name: Deploy on EC2 via SSH

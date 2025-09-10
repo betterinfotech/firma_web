@@ -3,6 +3,7 @@ import os
 import psycopg2
 from app.config import DB_CONFIG
 
+
 def _connect():
     url = os.getenv("DATABASE_URL")
     if url:
@@ -10,6 +11,7 @@ def _connect():
         return psycopg2.connect(url, sslmode="require")
     # fallback to old style (ensure DB_CONFIG has host/port/etc if you use this path)
     return psycopg2.connect(**DB_CONFIG)
+
 
 def log_token_attempt(success: bool):
     try:
