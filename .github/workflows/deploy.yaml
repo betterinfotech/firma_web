@@ -40,6 +40,9 @@ jobs:
       - name: Build env file (on runner)
         run: |
           cat > app.env << 'EOF'
+          # --- required by your app entrypoint ---
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          # --- keep existing vars (if your app still uses them elsewhere) ---
           SECRET_KEY=${{ secrets.SECRET_KEY }}
           DB_NAME=${{ secrets.DB_NAME }}
           DB_USER=${{ secrets.DB_USER }}
