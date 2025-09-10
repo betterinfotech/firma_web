@@ -1,12 +1,12 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 import jwt
 from datetime import datetime, timezone, timedelta
 from app.config import SECRET_KEY, VALID_DEVICES, S3_BUCKET, AWS_REGION
 from app.models.token_log import log_token_attempt
-import uuid
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 from werkzeug.datastructures import FileStorage
+from lambda_src.s3_upload_logger import insert_one
 
 
 auth_bp = Blueprint("auth", __name__)
@@ -119,6 +119,14 @@ def upload_file():
                 "ServerSideEncryption": "AES256",
             },
         )
+
+        # Now log to DB
+        try:
+            insert_one(key)  # e.g. "uploads/foo.txt"
+            current_app.logger.info("Logged upload %s", key)
+        except Exception:
+            current_app.logger.exception("Failed logging upload for %s", key)
+
     except (ClientError, BotoCoreError) as e:
         return jsonify(ok=False, error=f"S3 upload failed: {str(e)}"), 502
 
